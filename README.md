@@ -7,21 +7,15 @@ I wanted to be able to translate the audio back into English to ensure that our 
 ## Usage
 
 ```sh
-# Basic usage
+# Basic usage (decodes audio/gibberlink_trimmed.wav by default)
 cargo run --release
 
 # Decode a specific file
 cargo run --release -- --input audio/gibberlink_trimmed.wav
 
-# With protocol analysis
-cargo run --release -- --input audio/gibberlink_trimmed.wav --analyze
-
-# Save binary output
-cargo run --release -- -i audio/gibberlink_trimmed.wav -o decoded.txt --save-binary
+# Save decoded text to a file
+cargo run --release -- --input audio/gibberlink_trimmed.wav --output decoded.txt
 
 # Verbose (see every detected symbol)
-cargo run --release -- -i audio/gibberlink_trimmed.wav --verbose
-
-# Save decoded text to a file
-cargo run --release -- --output decoded.txt
+cargo run --release -- --input audio/gibberlink_trimmed.wav --verbose
 ```
