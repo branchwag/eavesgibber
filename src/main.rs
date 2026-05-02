@@ -87,12 +87,21 @@ fn load_audio(path: &PathBuf) -> Result<(Vec<f32>, u32)> {
     let samples: Vec<f32> = match spec.channels {
         1 => reader
             .samples::<i16>()
-            .map(|s| s.unwrap() as f32 / 32768.0)
-            .collect(),
+            .map(|sample| {
+                sample
+                    .map(|s| s as f32 / 32768.0)
+                    .context("Failed to read WAV sample")
+            })
+            .collect::<Result<Vec<_>>>()?,
         2 => {
             let mut mono = Vec::new();
             let mut iter = reader.samples::<i16>();
-            while let (Some(Ok(l)), Some(Ok(r))) = (iter.next(), iter.next()) {
+            while let Some(left) = iter.next() {
+                let l = left.context("Failed to read left WAV channel sample")?;
+                let r = iter
+                    .next()
+                    .context("Stereo WAV ended with an incomplete sample frame")?
+                    .context("Failed to read right WAV channel sample")?;
                 mono.push((l as f32 + r as f32) / 2.0 / 32768.0);
             }
             mono
@@ -103,7 +112,11 @@ fn load_audio(path: &PathBuf) -> Result<(Vec<f32>, u32)> {
     Ok((samples, sample_rate))
 }
 
-fn decode_with_ggwave(samples: &[f32], sample_rate: u32, verbose: bool) -> Result<Vec<DecodedMessage>> {
+fn decode_with_ggwave(
+    samples: &[f32],
+    sample_rate: u32,
+    verbose: bool,
+) -> Result<Vec<DecodedMessage>> {
     let mut messages = Vec::new();
 
     // Convert to i16 samples (ggwave often works better with integer samples)
@@ -167,8 +180,12 @@ fn decode_with_ggwave(samples: &[f32], sample_rate: u32, verbose: bool) -> Resul
                 let timestamp = sample_offset as f32 / sample_rate as f32;
 
                 if verbose {
-                    println!("   ✅ Decoded at {:.2}s: {} bytes - \"{}\"",
-                        timestamp, decoded_len, text.trim());
+                    println!(
+                        "   ✅ Decoded at {:.2}s: {} bytes - \"{}\"",
+                        timestamp,
+                        decoded_len,
+                        text.trim()
+                    );
                 }
 
                 // Strip protocol prefix (e.g., "V5$" or "6P$")
@@ -210,8 +227,12 @@ fn decode_with_ggwave(samples: &[f32], sample_rate: u32, verbose: bool) -> Resul
                 let timestamp = sample_offset as f32 / sample_rate as f32;
 
                 if verbose {
-                    println!("   ✅ Decoded at {:.2}s: {} bytes - \"{}\"",
-                        timestamp, decoded_len, text.trim());
+                    println!(
+                        "   ✅ Decoded at {:.2}s: {} bytes - \"{}\"",
+                        timestamp,
+                        decoded_len,
+                        text.trim()
+                    );
                 }
 
                 // Strip protocol prefix (e.g., "V5$" or "6P$")
@@ -227,9 +248,11 @@ fn decode_with_ggwave(samples: &[f32], sample_rate: u32, verbose: bool) -> Resul
         ggwave_free(instance);
 
         if verbose {
-            println!("\n   Processed {} chunks ({} samples total)",
+            println!(
+                "\n   Processed {} chunks ({} samples total)",
                 chunk_count,
-                samples.len());
+                samples.len()
+            );
         }
     }
 
